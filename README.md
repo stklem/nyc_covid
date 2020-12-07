@@ -24,6 +24,6 @@ Note: When the spring is included in the visualization, the sheer magnitude of l
 
 *Background*: [Dr. Ashish Jha](https://twitter.com/ashishkjha/status/1333636842307137537?s=20) applied a similarly simple formula: Hospitalizations = 3.5% of cases diagnosed 7 days prior. 
 
-*Visual*: When applied to recent NYC data, this ratio does not hold. NYC cases are hospitalized at a rate closer to 8%. Given that this is based on a back-of-the-napkin twitter analysis, it isn't shocking to find that it doesn't fit real world data but it peaks my interest in COVID hospitalization rates and how they vary across the nation
+*Visual*: When applied to recent NYC data, this ratio does not hold. NYC cases are hospitalized at a rate closer to 8%. This could be because the data represent total current admissions, rather than new admisions. NYC Health defines hospitalization by date of admission, which implies but does not state outright that the numbers are new admissions. Given that this is based on a back-of-the-napkin twitter analysis, it isn't shocking to find that it doesn't fit real world data but it peaks my interest in COVID hospitalization rates and how they vary across the nation
 
 ![Crude Hospitalization Estimates](output/nyc_hospitalization_prediction.png)
