@@ -32,7 +32,7 @@ nyc_by_day %>% filter(month >= 6) %>%
   theme_bw() +
   labs(title = "NYC: COVID Deaths", 
        subtitle = "Deaths Compared to 1.7% of Cases Diagnosed 28 Days Prior. June 2020 to Present") + 
-  ylab("Deaths (7 Day Average)") + 
+  ylab("Deaths (7 Day Average) ") + 
   xlab("Date") +
   ggsave("nyc_mortality_prediction.png", path = "output")
 
@@ -44,7 +44,7 @@ nyc_by_day %>%
             stat = "identity", size=.75, color = "black", linetype="dashed") + 
   theme_bw() +
   labs(title = "NYC: COVID Deaths", 
-       subtitle = "Deaths Compared to 1.8% of Cases Diagnosed 28 Days Prior. March 2020 to Present") + 
+       subtitle = "Deaths Compared to 1.7% of Cases Diagnosed 28 Days Prior. March 2020 to Present") + 
   ylab("Deaths (7 Day Average)") + 
   xlab("Date") +
   ggsave("nyc_mortality_prediction_all.png", path = "output")
