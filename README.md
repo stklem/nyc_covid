@@ -12,6 +12,8 @@ Crude hospitalization and death predictions inspired by viral tweets (well, vira
 
 Note: When the spring is included in the visualization, the sheer magnitude of lives lost is haunting. Undoubtedly the CFR was higher then, due to the difficulties of fighting a new disease and the strain it placed on hospitals and emergency services. 
 
+*Limitations*: If testing access (ex: strained capacity at public testing sites) and/or behavior (ex: limited resources for contact tracing, so less contacts are alerted about exposure) change and, thus, the number of confirmed cases represents a smaller percentage of the true cases in NYC, then future deaths will represent a larger percentage of confirmed cases
+
 *Future*: NYC's reporting of cases stratified by age allows for more detailed predictions of deaths based on CFR by age group
 
 ![Crude Mortality Estimates](output/nyc_mortality_prediction.png)
