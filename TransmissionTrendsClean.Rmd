@@ -1,0 +1,233 @@
+---
+title: "Transmission Trends"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+---
+<style type="text/css">
+.main-container {
+  max-width: 3000px;
+  margin-left: auto;
+  margin-right: auto;
+}
+</style>
+
+Source: <a href="https://github.com/nychealth/coronavirus-data/master/latest/7day-transmission-rate.csv">NYC Coronavirus Disease 2019 (COVID-19) Data</a>
+
+
+
+```{r, include=FALSE}
+
+# 0: Packages ------------------------------------------------------------------
+library(conflicted)
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(plotly)
+library(rmarkdown)
+library(stringr)
+library(tidyr)
+library(viridis)
+conflict_prefer("first", "dplyr")
+conflict_prefer("last", "dplyr")
+conflict_prefer("layout", "plotly")
+conflict_prefer("filter", "dplyr")
+conflict_prefer("arrange", "dplyr")
+
+options(scipen = 0)
+
+```
+
+```{r, include=FALSE}
+
+# 1: Load data -----------------------------------------------------------------
+
+transmission <- read.csv(paste0("https://raw.githubusercontent.com/nychealth/coronavirus-data/",
+                                "master/latest/7day-transmission-rate.csv")) 
+
+uhf_names <- read.csv(paste0("https://raw.githubusercontent.com/nychealth/coronavirus-data/",
+                             "master/latest/now-transmission-by-uhf42.csv")) 
+             
+```
+
+
+```{r, include = FALSE}
+
+# 2: Transform data ------------------------------------------------------------
+
+transmission_over_time <- transmission %>%
+  rename_with(~ str_remove(., "UHF"))%>%
+  pivot_longer(-week_end_date, names_to = "uhf", values_to = "transmission_rate") %>%
+  left_join(uhf_names %>%
+              rename_with(str_to_lower) %>% 
+              mutate(uhf = as.character(uhf)) %>%
+              select(uhf, neighborhood_name), 
+            by = c("uhf")) %>%
+  filter(!is.na(neighborhood_name)) %>%
+  mutate(week_end_date = mdy(week_end_date)) %>%
+  filter(week_end_date >= max(week_end_date) - 7*12) %>%
+  mutate(borough = case_when(uhf %in% 100:199 ~ "Bronx", 
+                           uhf %in% 200:299 ~ "Brooklyn", 
+                           uhf %in% 300:399 ~ "Manhattan",
+                           uhf %in% 400:499 ~ "Queens", 
+                           uhf %in% 500:599 ~ "Staten Island"),
+       text = paste0(neighborhood_name, "\n", 
+                     borough, "\n",
+                     "Transmission Rate: ", transmission_rate))
+
+select_top10 <- transmission_over_time %>%
+  # Grabbing data for the last 14 days
+  filter(week_end_date >= (max(week_end_date) - 14)) %>%
+  group_by(uhf) %>%
+  mutate(starting_transmission = first(transmission_rate),
+         ending_transmission = last(transmission_rate),
+         n_tx_change = ending_transmission - starting_transmission, 
+         perc_tx_change = round(n_tx_change/starting_transmission*100, 2)) %>%
+  filter(week_end_date == max(week_end_date)) %>%
+  ungroup()
+
+top10_net_change <- select_top10 %>%
+  arrange(desc(n_tx_change)) %>%
+  slice_head(n = 10) %>%
+  pull(uhf)
+
+top10_highest <- select_top10 %>%
+  arrange(desc(transmission_rate)) %>%
+  slice_head(n = 10) %>%
+  pull(uhf)
+
+y_label <- paste0("Transmission Levels \n", "(New cases per 100,000 people)")
+net_change_title <- paste0("COVID-19 Transmission (", min(transmission_over_time$week_end_date), " to ",
+                           max(transmission_over_time$week_end_date),")")
+```
+
+# I. Top 10 Highest Net Change in Transmission
+This graph shows the top ten neighborhoods with greatest net change in transmission in the last 14 days.
+
+```{r, echo= FALSE, message=FALSE, warning = FALSE, out.width = "100%"}
+Top10Fig <- transmission_over_time %>%
+  filter(uhf %in% top10_net_change) %>%
+  ggplot(aes(x = week_end_date, y = transmission_rate, 
+             fill = neighborhood_name, color = borough, group = neighborhood_name, 
+             text = paste0("Neighborhood: ", neighborhood_name, "\n", 
+                           "Borough: ", borough, "\n", 
+                           "Date: ", week_end_date, "\n", 
+                           "Transmission Rate: " , transmission_rate))) +
+  geom_line() + 
+  scale_color_discrete(name = "Neighborhood") +
+  theme_minimal() +
+  labs(title = net_change_title, 
+       y = y_label, 
+       x = "Week End Date")
+
+ggplotly(Top10Fig, tooltip = "text") %>%
+  layout(xaxis = list( rangeslider = list(type = "Date"))) 
+```
+
+# II. Top 10 Overall Highest Transmission Levels
+This graph shows the top ten neighborhoods with highest transmission levels overall for the last 14 days. 
+
+```{r Top 10 Overall Transmission Levels, echo= FALSE, message=FALSE, warning = FALSE, out.width = "100%"}
+Top10_highestfig <- transmission_over_time %>%
+  filter(uhf %in% top10_highest) %>%
+  ggplot(aes(x = week_end_date, y = transmission_rate, 
+             fill = neighborhood_name, color = borough, group = neighborhood_name, 
+             text = paste0("Neighborhood: ", neighborhood_name, "\n", 
+                           "Borough: ", borough, "\n", 
+                           "Date: ", week_end_date, "\n", 
+                           "Transmission Rate: " , transmission_rate))) +
+  geom_line() + 
+  scale_color_discrete(name = "Neighborhood") +
+  theme_minimal() +
+  labs(title = net_change_title, 
+       subtitle = paste0("Neighborhoods with the highest transmission, for the week ending ",
+                         max(transmission_over_time$week_end_date)),
+       y = y_label, 
+       x = "Week End Date")
+
+ggplotly(Top10_highestfig, tooltip = "text") %>%
+  layout(xaxis = list( rangeslider = list(type = "Date")))
+
+```
+
+# III. Change in Tranmission by Borough
+The following five line graphs show the changing transmission levels by borough from early August to November. The first line graph shows the change in transmission levels for the Bronx. 
+```{r, include = FALSE}
+
+figure_title <- paste0("COVID-19 Transmission (", min(transmission_over_time$week_end_date), " to ",
+                       max(transmission_over_time$week_end_date),")")
+
+y_label <- paste0("Transmission Levels \n", "(New cases per 100,000 people)")
+
+Legend <- "Neighborhood"
+
+borough_transmission_plot <- function(borough_name){
+  plot <- transmission_over_time %>%
+    filter(borough == borough_name)%>%
+    ggplot(aes(x = week_end_date, y = transmission_rate, 
+               color = neighborhood_name, group = neighborhood_name, 
+               text = paste0("Neighborhood: ", neighborhood_name, "\n", 
+                             "Date: ", week_end_date, "\n", 
+                             "Transmission Rate: " , transmission_rate))) +
+  geom_line() + 
+  scale_color_viridis(discrete = T) + 
+  labs(colour = Legend) +
+  theme_minimal() +
+  labs(title = figure_title, 
+       y = y_label, 
+       x = "Week End Date")
+  
+  return(plot)
+}
+
+```
+
+
+## The Bronx
+```{r Change in Tranmission in Bronx, echo= FALSE, message=FALSE, warning = FALSE, out.width = "100%"}
+
+BX_ggplot <- borough_transmission_plot("Bronx")
+
+ggplotly(BX_ggplot, tooltip = "text") %>%
+  layout(xaxis = list( rangeslider = list(type = "Date")))
+
+```
+
+## Brooklyn
+```{r Change in Tranmission in Brooklyn, echo= FALSE, message=FALSE, warning = FALSE, out.width = "100%"}
+BK_ggplot <- borough_transmission_plot("Brooklyn")
+
+ggplotly(BK_ggplot, tooltip = "text") %>%
+  layout(xaxis = list( rangeslider = list(type = "Date")))
+
+```
+
+## Manhattan
+```{r Change in Tranmission in Manhattan, echo= FALSE, message=FALSE, warning = FALSE, out.width = "100%"}
+MN_ggplot <- borough_transmission_plot("Manhattan")
+
+ggplotly(MN_ggplot, tooltip = "text") %>%
+  layout(xaxis = list( rangeslider = list(type = "Date")))
+
+```
+
+## Queens
+This line graph shows the change in transmission levels for Queens. 
+```{r Change in Tranmission in Queens, echo= FALSE, message=FALSE, warning = FALSE, out.width = "100%"}
+Q_ggplot <- borough_transmission_plot("Queens")
+
+ggplotly(Q_ggplot, tooltip = "text") %>%
+   layout(xaxis = list( rangeslider = list(type = "Date")))
+
+```
+
+## Staten Island
+
+```{r Change in Tranmission in Staten Island, echo= FALSE, message=FALSE, warning = FALSE, out.width = "100%"}
+SI_ggplot <- borough_transmission_plot("Staten Island")
+
+ggplotly(SI_ggplot, tooltip = "text") %>%
+  layout(xaxis = list( rangeslider = list(type = "Date")))
+```
+
