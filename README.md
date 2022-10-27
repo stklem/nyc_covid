@@ -1,7 +1,10 @@
 # NYC COVID
 
-## Recent (2022 work)
+## Recent (2022) work
 
+### Neighborhood Transmission Trends
+The Rmd-generated [HTML NYC Neighborhood Transmission Report](https://github.com/stklem/nyc_covid/blob/main/TransmissionTrendsClean.html) can be downloaded and opened in a web browser to see an example of a previously generated neighborhood transmission report. This report highlights which neighborhoods have notable increases in cases rates over time and which neighborhoods have the highest overall transmission. 
+![Example Transmission report](https://github.com/stklem/nyc_covid/blob/main/neighborhood_transmission_increase_20221024.png)
 
 ## 2020 analyses
 
