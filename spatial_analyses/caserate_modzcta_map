@@ -1,0 +1,170 @@
+# 0: Packages ------------------------------------------------------------------
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(lubridate)
+library(sf)
+library(ggplot2)
+library(viridis)
+setwd("C:/Users/klems/Documents/R/")
+
+
+# 1: Load data -----------------------------------------------------------------
+modzcta_case_rate <- read.csv(paste0("https://raw.githubusercontent.com/nychealth/", 
+                                     "coronavirus-data/master/trends/caserate-by-modzcta.csv"))
+
+modzcta_names <- read.csv(paste0("https://raw.githubusercontent.com/nychealth/",
+                                 "coronavirus-data/master/latest/last7days-by-modzcta.csv")) %>%
+  select(modzcta, modzcta_name) %>%
+  mutate(modzcta = as.character(modzcta))
+
+
+# 2: Transform data ------------------------------------------------------------
+
+waves_df <- modzcta_case_rate %>%
+  pivot_longer(-week_ending, names_to = "geo", names_prefix = "CASERATE_", values_to = "caserate") %>%
+  mutate(week_ending = mdy(week_ending), 
+         wave = case_when(week_ending >= as.Date("2020-11-01") &
+                            week_ending <= as.Date("2021-05-31") ~ "Wave 2",
+                          week_ending >= as.Date("2021-07-01") &
+                            week_ending <= as.Date("2021-10-31") ~ "Wave 3 - Delta",
+                          week_ending >= as.Date("2021-11-01") &
+                            week_ending <= as.Date("2022-02-28") ~ "Wave 4 - Omicron")) %>%
+  arrange(geo, week_ending) %>%
+  group_by(geo) %>%
+  mutate(perc_change = round((caserate - lag(caserate))/lag(caserate)*100, 2)) %>%
+  ungroup() %>%
+  filter(!is.na(wave)) %>%
+  group_by(geo, wave) %>%
+  mutate(week_of_wave = sequence(rle(geo)$length), 
+         max_week = ifelse(caserate == max(caserate), TRUE, FALSE), 
+         epiweek = epiweek(week_ending)) %>%
+  ungroup() %>%
+  left_join(modzcta_names, by = c("geo" = "modzcta"))
+
+
+
+# 3: Visualization ------------------------------------------------------------
+
+## Line charts
+
+waves_df %>%
+  filter(wave == "Wave 4 - Omicron"
+         #& is.na(modzcta_name)
+         & str_starts(geo, "100")
+         ) %>% 
+  ggplot(aes(x = week_ending, y = caserate, 
+             fill = geo, color = geo, group = geo, 
+             text = paste0(#"Neighborhood: ", neighborhood_name, "\n", 
+                           #"Borough: ", borough, "\n", 
+                           "Date: ", week_ending, "\n", 
+                           "Case Rate: " , caserate))) +
+  geom_line() + 
+  scale_color_discrete(name = "Neighborhood") +
+  theme_minimal() +
+  labs(title = net_change_title, 
+       y = y_label, 
+       x = "Week End Date")
+
+## Maps
+## Custom function ----------------------------
+modzcta_choropleth <- function(df_to_map, 
+                               variable,
+                               join_on, 
+                               plot_title,
+                               plot_subtitle,
+                               plot_caption,
+                               legend_title, 
+                               tooltip_text, 
+                               minmax = NA, #ex: c(0, 100)
+                               hide_legend = FALSE
+){
+  plot_title <- ifelse(missing(plot_title), "", plot_title)
+  plot_subtitle <- ifelse(missing(plot_subtitle), "", plot_subtitle)
+  legend_title <- ifelse(missing(legend_title), "", legend_title)
+  plot_caption <- ifelse(missing(plot_caption), "", plot_caption)
+  tooltip_text <- ifelse(missing(tooltip_text), "", tooltip_text)
+  
+  
+  # Pull in modzcta shapefile
+  sp.modzcta2010 <- sf::st_read("MODZCTA_2010.shp", "MODZCTA_2010", stringsAsFactors = F, quiet=T)
+  sp.modzcta2010 <- st_as_sf(sp.modzcta2010) %>%
+    cbind(read.csv("https://raw.githubusercontent.com/nychealth/coronavirus-data/master/latest/last7days-by-modzcta.csv") %>%
+            select(modzcta) %>%
+            mutate(modzcta = as.character(modzcta)) %>%
+            arrange(modzcta) %>%
+            add_row(modzcta = "99999"))
+  
+  zcta_sf <- sp.modzcta2010 %>%
+    left_join(df_to_map, by = c("modzcta" = join_on))
+  
+  ### Map
+  variable_str <- deparse(substitute(variable))
+  if(is.factor(zcta_sf[[variable_str]])){
+    plot <- ggplot(data = zcta_sf, aes(fill = factor({{variable}})), text = tooltip_text) + 
+      geom_sf(color = gray(.5), size = 0.3)
+  }
+  
+  else{
+    plot <- ggplot(data = zcta_sf, aes(fill = {{variable}}), text = tooltip_text) + 
+      geom_sf(color = gray(.5), size = 0.3) 
+    
+    if(is.na(minmax) == 1){
+      plot <- plot + scale_fill_viridis(option = "A", direction = -1, na.value = "white")
+    }
+    else if(!is.na(minmax)){
+      plot <- plot + scale_fill_viridis(option = "A", direction = -1, na.value = "white",
+                                        limits = minmax)
+    }
+    
+  }
+  
+  plot <- plot  + 
+    theme_bw() + 
+    labs(fill = legend_title) + 
+    labs(title = plot_title, 
+         subtitle = plot_subtitle, 
+         caption = plot_caption) +
+    theme(axis.text = element_blank())
+  
+  if(hide_legend == TRUE) {
+    plot <- plot + theme(legend.position = "none")
+  }
+  return(plot)
+}
+
+
+waves_df %>% 
+  filter(max_week == TRUE) %>%
+  filter(wave == "Wave 2") %>%
+  arrange(epiweek) %>%
+  distinct(geo, .keep_all=T) %>%
+  mutate(epiweek_max = factor(epiweek, levels = c(49, 51, 53, 1, 2, 3, 4, 11, 12), ordered = TRUE)) %>% 
+  modzcta_choropleth(epiweek_max, join_on = "geo")
+
+waves_df %>% 
+  filter(max_week == TRUE) %>%
+  filter(wave == "Wave 3 - Delta") %>%
+  arrange(epiweek) %>%
+  distinct(geo, .keep_all=T) %>%
+  mutate(epiweek_max = factor(epiweek, ordered = TRUE)) %>% 
+  modzcta_choropleth(epiweek_max, join_on = "geo")
+
+waves_df %>% 
+  filter(max_week == TRUE) %>%
+  filter(wave == "Wave 4 - Omicron") %>% #distinct(epiweek)
+  mutate(epiweek_max = factor(epiweek, levels = c(50, 51, 52, 1), ordered = TRUE)) %>% 
+  modzcta_choropleth(epiweek_max, join_on = "geo", plot_title = "Peak of Omicron Wave, by Epiweek",
+                     legend_title = "Epiweek")
+  ggsave("omicron_caserate_peak_map.png", width = 6, height = 6, units = "in")
+
+                     
+
+
+
+
+
+
+
+
+
