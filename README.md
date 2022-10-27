@@ -2,6 +2,10 @@
 
 ## Recent (2022) work
 
+### Spatial Analyses
+I will be uploading publicly shareable code and figures that are part of a larger project looking at the spatial dynamics of the Delta and Omicron waves in NYC. This initial scoping map looks at which week each neighborhood's Omicron wave peaked. 
+![Omicron Wave Map](https://github.com/stklem/nyc_covid/blob/main/spatial_analyses/omicron_caserate_peak_map.png)
+
 ### Neighborhood Transmission Trends
 The Rmd-generated [HTML NYC Neighborhood Transmission Report](https://github.com/stklem/nyc_covid/blob/main/TransmissionTrendsClean.html) can be downloaded and opened in a web browser to see an example of a previously generated neighborhood transmission report. This report highlights which neighborhoods have notable increases in cases rates over time and which neighborhoods have the highest overall transmission. 
 ![Example Transmission report](https://github.com/stklem/nyc_covid/blob/main/neighborhood_transmission_increase_20221024.png)
